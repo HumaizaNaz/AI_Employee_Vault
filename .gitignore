@@ -1,0 +1,124 @@
+# Environment variables and secrets
+.env
+*.env
+.env.local
+.env.production
+
+# Session files
+whatsapp_session/
+**/whatsapp_session/**
+
+# Credentials
+**/*credential*
+**/*token*
+**/*.key
+**/*.pem
+**/credentials.json
+**/tokens.json
+**/secrets.json
+**/client_secret.json
+**/*auth.py
+
+# Banking and finance information
+**/banking/**
+**/finance/private/**
+**/accounts/
+
+# Private configurations
+**/private_config.json
+**/secrets/
+
+# Cache and temporary files
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store
+**/Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+**/*.swp
+**/*.swo
+
+# Logs (if they might contain sensitive info)
+logs/
+*.log
+
+# Virtual environment
+venv/
+env/
+ENV/
+**/venv/**
+**/env/**
+**/ENV/**
+
+# Node modules (these are safe to exclude from sync)
+**/node_modules/
+
+# Local configuration overrides
+**/local_settings.json
+**/config_local.json
+
+# Batch files that might contain sensitive commands
+*.bat
+**/*.bat
+
+# === PERSONAL DATA PROTECTION ===
+# These folders contain personal emails, messages, and documents
+# They stay LOCAL only - never pushed to GitHub
+
+# Personal vault data (emails, messages, files)
+# Block ALL personal content in these folders (root + subfolders)
+Needs_Action/**
+Pending_Approval/**
+Approved/**
+Rejected/**
+Done/**
+
+# Keep folder structure with .gitkeep
+!Needs_Action/Email/.gitkeep
+!Needs_Action/WhatsApp/.gitkeep
+!Needs_Action/Files/.gitkeep
+!Pending_Approval/Email/.gitkeep
+!Pending_Approval/WhatsApp/.gitkeep
+!Pending_Approval/Files/.gitkeep
+!Approved/Email/.gitkeep
+!Approved/WhatsApp/.gitkeep
+!Approved/Files/.gitkeep
+!Done/Email/.gitkeep
+!Done/WhatsApp/.gitkeep
+!Done/Files/.gitkeep
+!Rejected/.gitkeep
+
+# Drafts with personal content
+Drafts/*.md
+
+# Plans (contain personal email content)
+Plans/*.md
+
+# Accounting & financial
+Accounting/
+
+# Obsidian personal settings
+.obsidian/
+
+# Logs (may contain personal info)
+Logs/*.json
+
+# Signals & Updates (runtime data)
+Signals/*.json
+Signals/*.md
+Updates/*.md
+
+# Claude Code local settings
+.claude/
+
+# Briefings (personal business data)
+Briefings/
+
+# Test artifacts and personal links
+test_invoice.txt
+testlink.md
+nul
