@@ -103,4 +103,30 @@
 - Provide proactive suggestions for optimization
 - Maintain comprehensive audit trails
 
+## Platinum Tier Specific Guidelines
+
+### Work-Zone Specialization (CRITICAL)
+- **Cloud Agent owns:** Email triage, draft replies, social post drafts
+- **Local Agent owns:** Approvals, WhatsApp session, payments, final send/post actions
+- Cloud NEVER sends emails or posts directly — always drafts only
+- Local NEVER processes emails while Cloud is running — check Signals/ first
+
+### Cloud ↔ Local Communication Rules
+- Cloud writes signals to `/Signals/` folder — Local reads and merges into Dashboard.md
+- Cloud writes updates to `/Updates/` folder only — never directly to Dashboard.md
+- Use claim-by-move: first agent to move item from `/Needs_Action/` to `/In_Progress/` owns it
+- Other agent must ignore already-claimed items
+
+### Security Rules (Non-negotiable)
+- `.env`, tokens, WhatsApp sessions, credentials NEVER go into git sync
+- Vault sync includes only `.md` and `.json` state files
+- Cloud never stores WhatsApp session or banking credentials
+- All secrets stay local — never on GitHub, never on Cloud VM
+
+### Odoo Accounting Rules
+- Create invoices as DRAFT only — require human approval before confirming
+- Never auto-confirm or post invoices
+- All payment actions require explicit approval
+- Log every accounting action to `/Logs/`
+
 ## If in doubt, place file in Pending_Approval folder
