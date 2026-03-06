@@ -29,7 +29,8 @@ LOGS_FOLDER = VAULT_ROOT / "Logs"
 PLANS_FOLDER = VAULT_ROOT / "Plans"
 DASHBOARD_FILE = VAULT_ROOT / "Dashboard.md"
 
-MCP_EMAIL_SERVER_URL = "http://localhost:3005/send-email"  # Updated to port 3005
+MCP_EMAIL_SERVER_URL = "http://localhost:3005/send-email"
+MCP_ODOO_SERVER_URL  = "http://localhost:3006/log-activity"
 from dotenv import load_dotenv
 import os
 load_dotenv()  # Load environment variables from .env file
@@ -130,6 +131,115 @@ def update_dashboard_status(recent_sent_emails: list = None):
     DASHBOARD_FILE.write_text(content, encoding='utf-8')
     print(f"Dashboard updated: Needs Action emails={pending_needs_action_emails}, WhatsApp={pending_needs_action_whatsapp}, Files={pending_needs_action_files}; Pending Approval total={total_pending_approval}.")
 
+def create_plan(item_type: str, filename: str, metadata: dict) -> Path:
+    """Creates a Plan.md file in /Plans/ for each processed item (Silver tier requirement)."""
+    PLANS_FOLDER.mkdir(exist_ok=True)
+    plan_name = f"PLAN_{filename.replace('.md', '')}.md"
+    plan_file = PLANS_FOLDER / plan_name
+
+    if plan_file.exists():
+        return plan_file  # already planned
+
+    subject = metadata.get('subject', metadata.get('text', 'Unknown'))[:60]
+    sender  = metadata.get('from', metadata.get('from_contact', 'Unknown'))
+    category = metadata.get('category', 'General')
+    priority = metadata.get('priority', 'medium')
+    needs_approval = metadata.get('needs_approval', 'False')
+
+    if item_type == 'email':
+        steps = [
+            f"- [x] Email detected from: {sender}",
+            f"- [x] Category identified: {category}",
+            f"- [x] Priority assessed: {priority}",
+            f"- [ ] Draft reply" if needs_approval.lower() == 'true' else "- [x] Auto-process (no approval needed)",
+            f"- [ ] Send reply via MCP Email Server" if needs_approval.lower() == 'true' else "- [x] Moved to Done",
+            "- [ ] Archive task",
+        ]
+        action = "REQUIRES_HUMAN_APPROVAL — move to /Approved/ to send reply" if needs_approval.lower() == 'true' else "AUTO_PROCESSED"
+    elif item_type == 'whatsapp':
+        steps = [
+            f"- [x] WhatsApp message detected from: {sender}",
+            f"- [x] Keywords matched: {metadata.get('keywords_matched', '[]')}",
+            "- [ ] Review message content",
+            "- [ ] Approve or reject reply",
+            "- [ ] Archive task",
+        ]
+        action = "REQUIRES_HUMAN_APPROVAL — move to /Approved/WhatsApp/ to process"
+    else:
+        steps = [
+            f"- [x] Item detected: {filename}",
+            "- [ ] Review and process",
+            "- [ ] Archive task",
+        ]
+        action = "PENDING"
+
+    content = f"""---
+created: {datetime.now().isoformat()}
+type: {item_type}_plan
+source_file: {filename}
+subject: {subject}
+from: {sender}
+category: {category}
+priority: {priority}
+status: in_progress
+---
+
+# Plan: {subject}
+
+## Objective
+Process {item_type} from **{sender}** — Category: {category}
+
+## Steps
+{chr(10).join(steps)}
+
+## Decision
+**{action}**
+
+## Notes
+- Created by Orchestrator (Ralph Wiggum loop)
+- Source: /Needs_Action/{item_type.capitalize()}/{filename}
+"""
+    plan_file.write_text(content, encoding='utf-8')
+    print(f"Created plan: {plan_name}")
+    return plan_file
+
+
+def with_retry(func, max_attempts=3, base_delay=2):
+    """Error recovery: exponential backoff retry for transient failures."""
+    for attempt in range(max_attempts):
+        try:
+            return func()
+        except Exception as e:
+            if attempt == max_attempts - 1:
+                print(f"All {max_attempts} attempts failed: {e}")
+                return None
+            wait = base_delay * (2 ** attempt)
+            print(f"Attempt {attempt+1} failed ({e}). Retrying in {wait}s...")
+            time.sleep(wait)
+
+
+def log_to_odoo(source: str, subject: str, category: str, action: str, details: str = ""):
+    """Send activity log to Odoo MCP — shows in Odoo dashboard."""
+    try:
+        import urllib.request, json as _json
+        payload = _json.dumps({
+            "source": source,
+            "subject": subject[:100],
+            "category": category,
+            "action": action,
+            "details": details[:200]
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            MCP_ODOO_SERVER_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        urllib.request.urlopen(req, timeout=3)
+    except Exception as e:
+        print(f"Odoo log skipped (not critical): {e}")
+
+
 def log_action(action_type: str, details: dict):
     """Logs an action to a daily JSON log file."""
     log_dir = LOGS_FOLDER
@@ -187,6 +297,9 @@ def orchestrate_all():
         for filepath in email_files:
             print(f"Processing Needs_Action/Email: {filepath.name}")
             metadata = read_email_metadata(filepath)
+            create_plan('email', filepath.name, metadata)
+            subj = metadata.get('subject', 'No Subject')
+            cat  = metadata.get('category', 'General')
             if metadata.get('needs_approval', 'False').lower() == 'true':
                 new_path = PENDING_APPROVAL_EMAIL_FOLDER / filepath.name
                 if new_path.exists():
@@ -195,6 +308,7 @@ def orchestrate_all():
                     filepath.rename(new_path)
                     print(f"Moved {filepath.name} to Pending_Approval/Email (requires approval).")
                     log_action('moved_to_pending_approval', {'filename': filepath.name, 'reason': 'email requires approval'})
+                    log_to_odoo('gmail', subj, cat, 'Pending Approval', f"From: {metadata.get('from','?')}")
             else:
                 new_path = DONE_EMAIL_FOLDER / filepath.name
                 if new_path.exists():
@@ -202,7 +316,8 @@ def orchestrate_all():
                 else:
                     filepath.rename(new_path)
                     print(f"Moved {filepath.name} to Done/Email.")
-                    log_action('processed_email_to_done', {'filename': filepath.name, 'subject': metadata.get('subject')})
+                    log_action('processed_email_to_done', {'filename': filepath.name, 'subject': subj})
+                    log_to_odoo('gmail', subj, cat, 'Auto-Processed', f"From: {metadata.get('from','?')}")
 
         # 2. Process /Needs_Action/WhatsApp files - WHATSAPP
         whatsapp_files = list(NEEDS_ACTION_WHATSAPP_FOLDER.glob('WHATSAPP_*.md'))
@@ -210,6 +325,8 @@ def orchestrate_all():
         for filepath in whatsapp_files:
             print(f"Processing Needs_Action/WhatsApp: {filepath.name}")
             metadata = read_whatsapp_metadata(filepath)
+            create_plan('whatsapp', filepath.name, metadata)
+            sender = metadata.get('from', metadata.get('from_contact', 'Unknown'))
             # WhatsApp messages typically require approval due to personal nature
             new_path = PENDING_APPROVAL_WHATSAPP_FOLDER / filepath.name
             if new_path.exists():
@@ -218,6 +335,7 @@ def orchestrate_all():
                 filepath.rename(new_path)
                 print(f"Moved {filepath.name} to Pending_Approval/WhatsApp (requires approval).")
                 log_action('moved_to_pending_approval', {'filename': filepath.name, 'reason': 'WhatsApp message requires approval'})
+                log_to_odoo('whatsapp', f"Message from {sender}", 'WhatsApp', 'Pending Approval', f"Contact: {sender}")
 
         # 3. Process /Pending_Approval/Email files - EMAILS
         pending_email_files = list(PENDING_APPROVAL_EMAIL_FOLDER.glob('EMAIL_*.md'))
@@ -233,11 +351,47 @@ def orchestrate_all():
             if approved_path.exists():
                 print(f"{filepath.name} was approved! Sending email via MCP...")
                 to_email = metadata.get('from', 'unknown@example.com')
-                subject_email = f"Re: {metadata.get('subject', 'No Subject')}"
-                text_email = "This is an automated reply from your AI Employee. Your request has been processed."
+                original_subject = metadata.get('subject', 'No Subject')
+                subject_email = f"Re: {original_subject}"
+                category = metadata.get('category', 'General')
+                priority = metadata.get('priority', 'medium')
 
-                # Log the intended MCP call
-                print(f"POST {MCP_EMAIL_SERVER_URL} HEADER Content-Type: application/json HEADER X-API-Key: {API_KEY} BODY {{\"to\":\"{to_email}\",\"subject\":\"{subject_email}\",\"text\":\"{text_email}\"}}")
+                # Context-specific reply based on category
+                if category == 'Payment':
+                    text_email = (
+                        f"Thank you for your message regarding '{original_subject}'. "
+                        "We have received your payment-related request and are processing it. "
+                        "Our team will follow up with the relevant details shortly."
+                    )
+                elif category == 'Client':
+                    text_email = (
+                        f"Thank you for reaching out regarding '{original_subject}'. "
+                        "We appreciate your interest and will get back to you with a detailed response "
+                        "within 24 hours."
+                    )
+                elif category == 'Project':
+                    text_email = (
+                        f"Thank you for your update on '{original_subject}'. "
+                        "We have noted the project details and will review and respond accordingly."
+                    )
+                elif category == 'Event':
+                    text_email = (
+                        f"Thank you for the information about '{original_subject}'. "
+                        "We have registered your event details and will confirm participation shortly."
+                    )
+                elif category in ('Urgent', 'Security') or priority in ('high', 'critical'):
+                    text_email = (
+                        f"We have received your urgent message regarding '{original_subject}'. "
+                        "This has been flagged as high priority and is being handled immediately."
+                    )
+                else:
+                    text_email = (
+                        f"Thank you for your email regarding '{original_subject}'. "
+                        "Your message has been received and processed. "
+                        "We will follow up if any further action is required."
+                    )
+
+                print(f"POST {MCP_EMAIL_SERVER_URL} to={to_email} subject={subject_email}")
 
                 sent_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
                 recent_sent.append((sent_timestamp, to_email, subject_email))
@@ -249,7 +403,7 @@ def orchestrate_all():
                 else:
                     filepath.rename(new_path)
                 print(f"Sent email and moved {filepath.name} to Done/Email.")
-                log_action('email_sent_via_mcp', {'filename': filepath.name, 'to': to_email, 'subject': subject_email})
+                log_action('email_sent_via_mcp', {'filename': filepath.name, 'to': to_email, 'subject': subject_email, 'category': category})
 
             elif rejected_path.exists():
                 print(f"{filepath.name} was rejected. Moving to Rejected folder.")
@@ -378,11 +532,47 @@ def orchestrate_emails():
             if approved_path.exists():
                 print(f"{filepath.name} was approved! Sending email via MCP...")
                 to_email = metadata.get('from', 'unknown@example.com')
-                subject_email = f"Re: {metadata.get('subject', 'No Subject')}"
-                text_email = "This is an automated reply from your AI Employee. Your request has been processed."
+                original_subject = metadata.get('subject', 'No Subject')
+                subject_email = f"Re: {original_subject}"
+                category = metadata.get('category', 'General')
+                priority = metadata.get('priority', 'medium')
 
-                # Log the intended MCP call
-                print(f"POST {MCP_EMAIL_SERVER_URL} HEADER Content-Type: application/json HEADER X-API-Key: {API_KEY} BODY {{\"to\":\"{to_email}\",\"subject\":\"{subject_email}\",\"text\":\"{text_email}\"}}")
+                # Context-specific reply based on category
+                if category == 'Payment':
+                    text_email = (
+                        f"Thank you for your message regarding '{original_subject}'. "
+                        "We have received your payment-related request and are processing it. "
+                        "Our team will follow up with the relevant details shortly."
+                    )
+                elif category == 'Client':
+                    text_email = (
+                        f"Thank you for reaching out regarding '{original_subject}'. "
+                        "We appreciate your interest and will get back to you with a detailed response "
+                        "within 24 hours."
+                    )
+                elif category == 'Project':
+                    text_email = (
+                        f"Thank you for your update on '{original_subject}'. "
+                        "We have noted the project details and will review and respond accordingly."
+                    )
+                elif category == 'Event':
+                    text_email = (
+                        f"Thank you for the information about '{original_subject}'. "
+                        "We have registered your event details and will confirm participation shortly."
+                    )
+                elif category in ('Urgent', 'Security') or priority in ('high', 'critical'):
+                    text_email = (
+                        f"We have received your urgent message regarding '{original_subject}'. "
+                        "This has been flagged as high priority and is being handled immediately."
+                    )
+                else:
+                    text_email = (
+                        f"Thank you for your email regarding '{original_subject}'. "
+                        "Your message has been received and processed. "
+                        "We will follow up if any further action is required."
+                    )
+
+                print(f"POST {MCP_EMAIL_SERVER_URL} to={to_email} subject={subject_email}")
 
                 sent_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
                 recent_sent.append((sent_timestamp, to_email, subject_email))
@@ -394,7 +584,7 @@ def orchestrate_emails():
                 else:
                     filepath.rename(new_path)
                 print(f"Sent email and moved {filepath.name} to Done/Email.")
-                log_action('email_sent_via_mcp', {'filename': filepath.name, 'to': to_email, 'subject': subject_email})
+                log_action('email_sent_via_mcp', {'filename': filepath.name, 'to': to_email, 'subject': subject_email, 'category': category})
 
             elif rejected_path.exists():
                 print(f"{filepath.name} was rejected. Moving to Rejected folder.")

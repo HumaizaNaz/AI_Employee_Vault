@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = 'force-dynamic';
 
 const FB_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN!;
+const FB_PAGE_ID = process.env.FACEBOOK_PAGE_ID || "me";
 const IG_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID!;
 const IG_TOKEN = process.env.INSTAGRAM_USER_TOKEN!;
 const LI_TOKEN = process.env.LINKEDIN_ACCESS_TOKEN;
@@ -11,7 +12,7 @@ const GRAPH_URL = "https://graph.facebook.com/v18.0";
 
 async function postToFacebook(message: string): Promise<{ success: boolean; postId?: string; error?: string }> {
   try {
-    const res = await fetch(`${GRAPH_URL}/me/feed`, {
+    const res = await fetch(`${GRAPH_URL}/${FB_PAGE_ID}/feed`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, access_token: FB_TOKEN }),

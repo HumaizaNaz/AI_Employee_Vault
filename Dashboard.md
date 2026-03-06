@@ -40,6 +40,7 @@
 | Facebook | ✅ Connected — Page posting active |
 | Instagram | ✅ Connected — Business Account linked |
 | Twitter/X | ✅ Auth working — Credits reset Mar 1 |
+| LinkedIn | ⚠️ Token pending — Auto-poster ready |
 
 ---
 
@@ -65,23 +66,20 @@
 
 ---
 
-## Email Processing
+## Live Processing Status (Auto-Updated by Orchestrator)
 
-- **Last checked:** 2026-02-18
-- **Total processed:** 25+
-- **Pending in Needs_Action:** 0
-- **Pending Approval:** 0
-
-## WhatsApp Processing
-
-- **Last checked:** 2026-02-18
-- **Total processed:** 8+
-- **Pending in Needs_Action:** 0
-- **Pending Approval:** 0
+- 🕐 **Last checked**: 2026-03-07 04:12
+- 📧 **Pending emails in Needs_Action**: 11
+- 💬 **Pending WhatsApp in Needs_Action**: 0
+- 📁 **Pending files in Needs_Action**: 0
+- 🔥 **Important pending in Pending_Approval**: 1
 
 ---
 
 ## Recent Activity
+- 2026-03-06 08:26: CEO Briefing generated → 2026-03-09_Monday_Briefing.md
+- 2026-03-06 08:25: CEO Briefing generated → 2026-03-09_Monday_Briefing.md
+- 2026-03-06 08:23: CEO Briefing generated → 2026-03-09_Monday_Briefing.md
 
 - 2026-02-18: Odoo Invoicing module installed and tested (2 invoices created)
 - 2026-02-18: Odoo MCP Server added to PM2 auto-restart

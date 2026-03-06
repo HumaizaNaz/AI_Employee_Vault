@@ -5,7 +5,7 @@ module.exports = {
   apps: [
     {
       name: 'cloud-orchestrator',
-      script: './cloud_orchestrator.py',
+      script: './System/cloud_orchestrator.py',
       interpreter: PYTHON,
       cwd: VAULT_PATH,
       autorestart: true,
@@ -14,7 +14,8 @@ module.exports = {
       env: {
         VAULT_PATH: VAULT_PATH,
         ORCHESTRATOR_MODE: 'cloud',
-        CLOUD_POLL_INTERVAL: '30'
+        CLOUD_POLL_INTERVAL: '30',
+        PYTHONPATH: './System:./'
       }
     },
     {
@@ -47,7 +48,7 @@ module.exports = {
     },
     {
       name: 'health-monitor',
-      script: './health_monitor.py',
+      script: './System/health_monitor.py',
       interpreter: PYTHON,
       cwd: VAULT_PATH,
       autorestart: true,
@@ -60,7 +61,7 @@ module.exports = {
     },
     {
       name: 'sync-manager',
-      script: './sync_manager.py',
+      script: './System/sync_manager.py',
       interpreter: PYTHON,
       cwd: VAULT_PATH,
       autorestart: true,

@@ -14,14 +14,14 @@ class DropFolderHandler(FileSystemEventHandler):
         self.vault_path = Path(vault_path)
 
         # Create all necessary folders
-        self.needs_action = self.vault_path / 'Needs_Action'
-        self.done_folder = self.vault_path / 'Done'
-        self.pending_approval = self.vault_path / 'Pending_Approval'
+        self.needs_action = self.vault_path / 'Needs_Action' / 'Files'
+        self.done_folder = self.vault_path / 'Done' / 'Files'
+        self.pending_approval = self.vault_path / 'Pending_Approval' / 'Files'
         self.plans_folder = self.vault_path / 'Plans'
 
-        self.needs_action.mkdir(exist_ok=True)
-        self.done_folder.mkdir(exist_ok=True)
-        self.pending_approval.mkdir(exist_ok=True)
+        self.needs_action.mkdir(parents=True, exist_ok=True)
+        self.done_folder.mkdir(parents=True, exist_ok=True)
+        self.pending_approval.mkdir(parents=True, exist_ok=True)
         self.plans_folder.mkdir(exist_ok=True)
 
         # Analytics tracking
