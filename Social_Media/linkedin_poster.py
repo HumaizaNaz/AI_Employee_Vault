@@ -16,8 +16,8 @@ from datetime import datetime
 VAULT_PATH = Path(os.environ.get("VAULT_PATH", "F:/AI_Employee_Vault/AI_Employee_Vault - Copy"))
 ENV_FILE   = VAULT_PATH / ".env"
 LOG_FILE   = VAULT_PATH / "Logs" / f"{datetime.now().strftime('%Y-%m-%d')}.json"
-DONE_DIR   = VAULT_PATH / "Done"
-PENDING_DIR= VAULT_PATH / "Pending_Approval"
+DONE_DIR   = VAULT_PATH / "Done" / "LinkedIn"
+PENDING_DIR= VAULT_PATH / "Pending_Approval" / "LinkedIn"
 
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
@@ -266,6 +266,7 @@ def main():
         log_action("linkedin_post", result)
 
         # Move to Done
+        DONE_DIR.mkdir(parents=True, exist_ok=True)
         DONE_DIR.mkdir(parents=True, exist_ok=True)
         done_file = DONE_DIR / f"LINKEDIN_POSTED_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         done_file.write_text(f"""---

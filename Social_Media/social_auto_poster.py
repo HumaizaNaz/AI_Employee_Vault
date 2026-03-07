@@ -195,11 +195,13 @@ def post_twitter(text: str) -> dict:
 # ── Log result ─────────────────────────────────────────────────────────────────
 def log_result(platform: str, result: dict, post_text: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    DONE_DIR.mkdir(parents=True, exist_ok=True)
+    platform_done = DONE_DIR / platform.title()
+    platform_pending = PENDING / platform.title()
+    platform_done.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
     if result.get("success"):
-        done_file = DONE_DIR / f"{platform.upper()}_POST_{timestamp}.md"
+        done_file = platform_done / f"{platform.upper()}_POST_{timestamp}.md"
         done_file.write_text(f"""---
 type: social_post
 platform: {platform}
@@ -213,9 +215,9 @@ posted_at: {datetime.now().isoformat()}
 """, encoding="utf-8")
         print(f"{platform}: Posted! ID={result.get('post_id')}")
     else:
-        # Save failed post to Pending_Approval for manual review
-        PENDING.mkdir(parents=True, exist_ok=True)
-        draft = PENDING / f"{platform.upper()}_POST_{timestamp}.md"
+        # Save failed post to Pending_Approval/<platform>/ for manual review
+        platform_pending.mkdir(parents=True, exist_ok=True)
+        draft = platform_pending / f"{platform.upper()}_POST_{timestamp}.md"
         draft.write_text(f"""---
 type: social_post_draft
 platform: {platform}
